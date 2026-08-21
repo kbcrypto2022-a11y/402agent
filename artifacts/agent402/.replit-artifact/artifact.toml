@@ -1,0 +1,31 @@
+kind = "api"
+previewPath = "/agent402"
+title = "Agent402"
+version = "1.0.0"
+id = "agent402-x402-service"
+
+[[services]]
+localPort = 8090
+name = "Agent402"
+paths = ["/agent402", "/openapi.json", "/.well-known/x402"]
+
+[services.development]
+run = "pnpm --filter @workspace/agent402 run dev"
+
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/agent402", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["bash", "artifacts/agent402/scripts/run-with-smoke.sh"]
+
+[services.production.run.env]
+PORT = "8090"
+NODE_ENV = "production"
+
+[services.production.health.startup]
+path = "/agent402/api/v1/health"

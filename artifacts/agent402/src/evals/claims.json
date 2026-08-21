@@ -1,0 +1,85 @@
+{
+  "description": "Starter benchmark set of known-verdict claims for the VERIFY service. Run with `pnpm run eval` (spends real provider money).",
+  "items": [
+    {
+      "id": "geo-001",
+      "claim": "Canberra is the capital city of Australia.",
+      "expected_verdict": "VERIFIED",
+      "reference_sources": ["https://www.australia.gov.au"],
+      "category": "geography",
+      "difficulty": "easy"
+    },
+    {
+      "id": "geo-002",
+      "claim": "Sydney is the capital city of Australia.",
+      "expected_verdict": "NOT_VERIFIED",
+      "reference_sources": ["https://www.australia.gov.au"],
+      "category": "geography",
+      "difficulty": "easy"
+    },
+    {
+      "id": "sci-001",
+      "claim": "Water at standard atmospheric pressure boils at 100 degrees Celsius.",
+      "expected_verdict": "VERIFIED",
+      "reference_sources": ["https://www.nist.gov"],
+      "category": "science",
+      "difficulty": "easy"
+    },
+    {
+      "id": "sci-002",
+      "claim": "The Great Wall of China is easily visible to the naked eye from the Moon.",
+      "expected_verdict": "NOT_VERIFIED",
+      "reference_sources": ["https://www.nasa.gov/vision/space/workinginspace/great_wall.html"],
+      "category": "science",
+      "difficulty": "medium"
+    },
+    {
+      "id": "biz-001",
+      "claim": "Apple Inc. reported over $300 billion in total net sales for fiscal year 2022.",
+      "expected_verdict": "VERIFIED",
+      "reference_sources": ["https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193"],
+      "category": "business",
+      "difficulty": "medium"
+    },
+    {
+      "id": "biz-002",
+      "claim": "NVIDIA acquired Arm Holdings in 2022.",
+      "expected_verdict": "NOT_VERIFIED",
+      "reference_sources": ["https://nvidianews.nvidia.com/news/nvidia-and-softbank-group-announce-termination-of-nvidias-acquisition-of-arm-limited"],
+      "category": "business",
+      "difficulty": "medium"
+    },
+    {
+      "id": "amb-001",
+      "claim": "Zorblat Industries of Freedonia announced a quantum teleportation product last Tuesday.",
+      "expected_verdict": "INSUFFICIENT_EVIDENCE",
+      "reference_sources": [],
+      "category": "fabricated",
+      "difficulty": "easy"
+    },
+    {
+      "id": "amb-002",
+      "claim": "A privately funded mission will land humans on Mars before 2031.",
+      "expected_verdict": "INSUFFICIENT_EVIDENCE",
+      "reference_sources": [],
+      "category": "prediction",
+      "difficulty": "hard"
+    },
+    {
+      "id": "con-001",
+      "claim": "Moderate coffee consumption reduces the overall risk of early death.",
+      "expected_verdict": "CONFLICTING_EVIDENCE",
+      "reference_sources": ["https://pubmed.ncbi.nlm.nih.gov"],
+      "category": "health",
+      "difficulty": "hard"
+    },
+    {
+      "id": "con-002",
+      "claim": "Daily multivitamin use meaningfully improves long-term health outcomes for the general population.",
+      "expected_verdict": "CONFLICTING_EVIDENCE",
+      "reference_sources": ["https://pubmed.ncbi.nlm.nih.gov"],
+      "category": "health",
+      "difficulty": "hard"
+    }
+  ]
+}

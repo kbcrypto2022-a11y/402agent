@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">402Agent badge</title>
+  <desc id="desc">A dark square badge with a mint outline and the 4 dot 2 mark.</desc>
+  <rect width="1200" height="1200" rx="180" fill="#0A0D10"/>
+  <rect x="42" y="42" width="1116" height="1116" rx="142" fill="none" stroke="#A6D6C1" stroke-width="18"/>
+  <rect x="74" y="74" width="1052" height="1052" rx="120" fill="none" stroke="#A6D6C1" stroke-opacity=".14" stroke-width="3"/>
+  <text
+    x="600"
+    y="710"
+    fill="#A6D6C1"
+    font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="300"
+    font-weight="650"
+    letter-spacing="-12"
+    text-anchor="middle"
+  >4·2</text>
+</svg>

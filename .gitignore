@@ -1,0 +1,82 @@
+# compiled output
+dist
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+
+# dependencies
+node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# testing
+coverage/
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Replit-internal workspace files — not part of this repository
+.cache/
+.local/
+.agents/
+.pythonlibs/
+.upm/
+.replit
+.replitignore
+post-merge.sh
+agent402-standalone.zip
+
+# Credentials and private keys — never commit these
+.env
+.env.*
+!.env.example
+credentials.json
+secrets.json
+wallet.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# PHI and call data — patient records must never be committed
+call-logs.jsonl
+**/call-logs.jsonl
+
+# Database exports
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and temporary runtime state
+*.log
+logs/
+tmp/
+temp/
+.runtime/
+
+# Internal release-preparation artefacts
+attached_assets/Pasted-*.txt
+attached_assets/Screenshot_*.png
+screenshots/
+
+# Cursor / GitHub Copilot workspace rules (internal tooling)
+.cursor/
+.github/instructions/
