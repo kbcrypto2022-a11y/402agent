@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response } from "express";
 import pinoHttp from "pino-http";
-import { getConfig, type Agent402Config } from "./config";
+import { CDP_FACILITATOR_URL, getConfig, type Agent402Config } from "./config";
 import type { TransactionStore } from "./database/types";
 import { createApiRouter, createPaidServiceRouter } from "./api/routes";
 import type { FulfillFn } from "./services/fulfillment";
@@ -11,10 +11,7 @@ import { getBazaarSnapshot } from "./api/websiteData";
 import { createAdminRouter } from "./admin";
 import { MockPaymentProcessor } from "./payments/x402/mockProcessor";
 import { RealX402Processor } from "./payments/x402/real";
-import {
-  CDP_FACILITATOR_URL,
-  createCdpFacilitatorClient,
-} from "./payments/x402/cdp";
+import { createCdpFacilitatorClient } from "./payments/x402/cdp";
 import type { PaymentProcessor } from "./payments/x402/processor";
 import { createRateLimiter } from "./security/rateLimit";
 import { ApiError, errorBody } from "./security/errors";
@@ -67,11 +64,14 @@ export function createApp(opts: {
   if (!processor) {
     if (config.paymentMode === "test") {
       processor = new MockPaymentProcessor(config);
-    } else if (
-      config.paymentMode === "testnet" ||
-      config.paymentMode === "production"
-    ) {
+    } else if (config.paymentMode === "testnet") {
       processor = new RealX402Processor(config);
+    } else if (config.paymentMode === "production") {
+      // Production uses the CDP facilitator, which requires a signed JWT on
+      // every call (including the initial /supported discovery).  Pass the
+      // authenticated client explicitly; leaving it unset would fall back to
+      // a plain HTTP client that receives a 401 from the CDP endpoint.
+      processor = new RealX402Processor(config, createCdpFacilitatorClient());
     } else {
       throw new Error(
         `Unsupported PAYMENT_MODE "${config.paymentMode}".`,

@@ -3,11 +3,8 @@ import {
   HTTPFacilitatorClient,
   type FacilitatorClient,
 } from "@x402/core/server";
+import { CDP_FACILITATOR_URL } from "../../config";
 import { PaymentError } from "./mock";
-
-/** Official Coinbase Developer Platform x402 facilitator base URL. */
-export const CDP_FACILITATOR_URL =
-  "https://api.cdp.coinbase.com/platform/v2/x402";
 
 const CDP_HOST = "api.cdp.coinbase.com";
 const CDP_BASE_PATH = "/platform/v2/x402";
