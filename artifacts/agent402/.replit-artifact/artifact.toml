@@ -21,7 +21,7 @@ args = ["pnpm", "--filter", "@workspace/agent402", "run", "build"]
 NODE_ENV = "production"
 
 [services.production.run]
-args = ["bash", "artifacts/agent402/scripts/run-with-smoke.sh"]
+args = ["node", "--enable-source-maps", "artifacts/agent402/dist/index.mjs"]
 
 [services.production.run.env]
 PORT = "8090"
