@@ -8,7 +8,7 @@ An x402-native AI fact-verification service. Clients pay a micro-payment in test
 pnpm --filter @workspace/agent402 run dev
 ```
 
-The server starts on the port assigned by Replit (default `5000`) under the path `/agent402`.
+The server starts on the port specified by the PORT environment variable (default: 5000).
 
 ---
 
@@ -27,7 +27,7 @@ The server starts on the port assigned by Replit (default `5000`) under the path
 |---|---|
 | `PAYER_PRIVATE_KEY` | Private key of a Base Sepolia wallet that holds testnet USDC |
 
-Set it via Replit Secrets (it is already configured in this workspace).
+Set this value as a secure environment variable in your deployment environment. Do not commit secrets to the repository.
 
 ### Run manually
 
@@ -47,17 +47,17 @@ AGENT402_URL=https://your-host/agent402 pnpm --filter @workspace/agent402 run sm
 
 ## Scheduled smoke test
 
-A Replit workflow named **"smoke_test: Smoke Test (Scheduled)"** runs the smoke test automatically every 24 hours.
+A scheduled smoke-test workflow can run the health and payment-path checks automatically.
 
 ### Check results
 
-1. Open the **Workflows** panel in Replit.
-2. Click **"smoke_test: Smoke Test (Scheduled)"**.
+1. Configure the scheduled smoke test using your deployment platform or CI/CD scheduler.
+2. Review the scheduler's run history and logs.
 3. Scroll through the console output — each run is prefixed with a UTC timestamp and ends with `[RESULT] PASS` or `[RESULT] FAIL`.
 
 ### Change the interval
 
-The wrapper script (`scripts/run-smoke-scheduled.sh`) reads the `SMOKE_INTERVAL_SECONDS` environment variable. Set it in Replit Secrets or in the workflow command to override the default 24-hour cadence:
+The wrapper script (`scripts/run-smoke-scheduled.sh`) reads `SMOKE_INTERVAL_SECONDS` from the environment. Configure it through your deployment platform’s secret/environment-variable management.
 
 ```bash
 SMOKE_INTERVAL_SECONDS=3600 bash artifacts/agent402/scripts/run-smoke-scheduled.sh
