@@ -115,6 +115,20 @@ export function createApp(opts: {
     res.json(wellKnownX402(config, baseUrl));
   });
 
+  // Make the bare domain machine-discoverable without changing the visible
+  // /agent402 website. The links point to the canonical discovery documents
+  // above and the redirect reuses the existing website route.
+  app.get("/", (_req: Request, res: Response) => {
+    res.setHeader(
+      "Link",
+      [
+        '</.well-known/x402>; rel="x402"',
+        '</openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json;version=3.1"',
+      ].join(", "),
+    );
+    res.redirect(BASE_PATH);
+  });
+
   // Public website presentation. It consumes the same live metadata used by
   // the API and leaves all paid service and payment routes unchanged.
   app.get([BASE_PATH, `${BASE_PATH}/`], async (req: Request, res: Response) => {

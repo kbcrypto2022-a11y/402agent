@@ -164,6 +164,29 @@ describe("root HTML Link header", () => {
   });
 });
 
+describe("bare root machine discovery", () => {
+  it("redirects to the existing /agent402 website instead of returning 404", async () => {
+    const { app } = makeApp();
+    const res = await request(app).get("/");
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("/agent402");
+  });
+
+  it("exposes the x402 discovery pointer", async () => {
+    const { app } = makeApp();
+    const res = await request(app).get("/");
+    expect(res.headers.link).toContain('</.well-known/x402>; rel="x402"');
+  });
+
+  it("exposes the OpenAPI service-description pointer", async () => {
+    const { app } = makeApp();
+    const res = await request(app).get("/");
+    expect(res.headers.link).toContain(
+      '</openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json;version=3.1"',
+    );
+  });
+});
+
 describe("GET /openapi.json (root-level discovery)", () => {
   it("returns 200 with application/json", async () => {
     const { app } = makeApp();
@@ -235,6 +258,23 @@ describe("GET /openapi.json (root-level discovery)", () => {
     const { app } = makeApp();
     const res = await request(app).get("/openapi.json");
     expect(res.headers["access-control-allow-origin"]).toBe("*");
+  });
+});
+
+describe("paid service routes remain x402-gated", () => {
+  it.each([
+    ["search", { query: "test query" }],
+    ["read", { url: "https://example.com" }],
+    ["verify", { claim: "The Earth orbits the Sun." }],
+  ])("keeps %s returning a payment challenge without payment", async (service, body) => {
+    const { app } = makeApp();
+    const res = await request(app)
+      .post(`/agent402/api/v1/${service}`)
+      .send(body);
+    expect(res.status).toBe(402);
+    expect(res.body.x402Version).toBe(2);
+    expect(res.body.error).toBe("Payment required");
+    expect(res.body.accepts).toHaveLength(1);
   });
 });
 
