@@ -7,6 +7,7 @@ import {
   BASE_MAINNET_NETWORK,
   BASE_MAINNET_USDC,
   BASE_SEPOLIA_NETWORK,
+  CDP_FACILITATOR_URL,
   loadConfig,
   type Agent402Config,
 } from "../config";
@@ -164,5 +165,154 @@ describe("production x402 payment mode", () => {
     expect(() => loadConfig()).toThrow(
       'Invalid PAYMENT_MODE "mainnet" — must be "test", "testnet" or "production"',
     );
+  });
+});
+
+// ─── RealX402Processor facilitator initialization ────────────────────────────
+
+describe("RealX402Processor facilitator initialization", () => {
+  /** Minimal tx shape needed by requirementsFor — only quotedPrice is accessed. */
+  const minTx = { quotedPrice: 0.047 };
+
+  const mockReq = {
+    scheme: "exact" as const,
+    network: BASE_MAINNET_NETWORK,
+    amount: "47000",
+    asset: BASE_MAINNET_USDC,
+    payTo: RECIPIENT,
+    maxTimeoutSeconds: 300,
+    extra: { name: "USD Coin", version: "2" },
+  };
+
+  /**
+   * Create a RealX402Processor whose internal x402ResourceServer methods are
+   * spied on so tests can inspect initialization without hitting a real
+   * facilitator.
+   */
+  function makeServerMockedProcessor(
+    initImpl: () => Promise<void> = () => Promise.resolve(),
+  ) {
+    const processor = new RealX402Processor(
+      productionConfig(),
+      {} as FacilitatorClient,
+      {},
+    );
+    const server = (processor as any).server;
+    const initSpy = vi
+      .spyOn(server, "initialize")
+      .mockImplementation(initImpl);
+    const buildSpy = vi
+      .spyOn(server, "buildPaymentRequirements")
+      .mockResolvedValue([mockReq]);
+    return { processor, initSpy, buildSpy };
+  }
+
+  it("production loadConfig() defaults to CDP facilitator when X402_FACILITATOR_URL is unset", () => {
+    vi.stubEnv("PAYMENT_MODE", "production");
+    vi.stubEnv("X402_RECIPIENT_ADDRESS", RECIPIENT);
+    vi.stubEnv("X402_FACILITATOR_URL", ""); // empty string treated as unset via ||
+    const config = loadConfig();
+    expect(config.facilitatorUrl).toBe(CDP_FACILITATOR_URL);
+  });
+
+  it("calls server.initialize() before buildPaymentRequirements on first use", async () => {
+    const callOrder: string[] = [];
+    const { processor } = makeServerMockedProcessor(async () => {
+      callOrder.push("init");
+    });
+    vi
+      .spyOn((processor as any).server, "buildPaymentRequirements")
+      .mockImplementation(async () => {
+        callOrder.push("build");
+        return [mockReq];
+      });
+    await (processor as any).requirementsFor(minTx);
+    expect(callOrder).toEqual(["init", "build"]);
+  });
+
+  it("calls initialize exactly once across multiple sequential calls", async () => {
+    const { processor, initSpy } = makeServerMockedProcessor();
+    await (processor as any).requirementsFor(minTx);
+    await (processor as any).requirementsFor(minTx);
+    expect(initSpy).toHaveBeenCalledOnce();
+  });
+
+  it("concurrent first requests share one initialization promise", () => {
+    const { processor, initSpy } = makeServerMockedProcessor();
+    // Call ensureInitialized twice before the first promise settles.
+    const p1 = (processor as any).ensureInitialized();
+    const p2 = (processor as any).ensureInitialized();
+    // Both must return the SAME Promise object — no duplicate initialize call.
+    expect(p1).toBe(p2);
+    expect(initSpy).toHaveBeenCalledOnce();
+    return p1; // let vitest await resolution
+  });
+
+  it("initialization failure propagates as HTTP 502 PAYMENT_FAILED", async () => {
+    const { processor } = makeServerMockedProcessor(() =>
+      Promise.reject(new Error("Facilitator unreachable")),
+    );
+    const app = createApp({
+      store: new MemoryTransactionStore(),
+      config: productionConfig(),
+      processor,
+      quiet: true,
+    });
+    const res = await request(app)
+      .post(`${BASE}/read`)
+      .send({ url: "https://example.com" });
+    expect(res.status).toBe(502);
+    expect(res.body.error?.code).toBe("PAYMENT_FAILED");
+  });
+
+  it("generates canonical mainnet amounts 157000 / 47000 / 282000 for all three services", async () => {
+    // Use loadConfig()-equivalent cost estimates so prices match production reality.
+    const config = testConfig({
+      paymentMode: "production",
+      paymentNetwork: BASE_MAINNET_NETWORK,
+      paymentAsset: BASE_MAINNET_USDC,
+      recipientAddress: RECIPIENT,
+      facilitatorUrl: CDP_FACILITATOR_URL,
+      publicUrl: "https://402agent.ai/agent402",
+      serviceCostEstimates: { search: 0.05, read: 0.015, verify: 0.09 },
+      maxCostPerRequest: 0.25,
+    });
+    // configuredRequirements: true — builds requirements from config, no
+    // facilitator call, so the test is hermetic and fast.
+    const processor = new RealX402Processor(
+      config,
+      {} as FacilitatorClient,
+      { configuredRequirements: true },
+    );
+    const app = createApp({
+      store: new MemoryTransactionStore(),
+      config,
+      processor,
+      quiet: true,
+    });
+    const [search, read, verify] = await Promise.all([
+      request(app).post(`${BASE}/search`).send({ query: "probe" }),
+      request(app).post(`${BASE}/read`).send({ url: "https://example.com" }),
+      request(app).post(`${BASE}/verify`).send({ claim: "probe" }),
+    ]);
+    expect([search.status, read.status, verify.status]).toEqual([402, 402, 402]);
+    expect(search.body.accepts[0]).toMatchObject({
+      amount: "157000",
+      network: BASE_MAINNET_NETWORK,
+      asset: BASE_MAINNET_USDC,
+      payTo: RECIPIENT,
+    });
+    expect(read.body.accepts[0]).toMatchObject({
+      amount: "47000",
+      network: BASE_MAINNET_NETWORK,
+      asset: BASE_MAINNET_USDC,
+      payTo: RECIPIENT,
+    });
+    expect(verify.body.accepts[0]).toMatchObject({
+      amount: "282000",
+      network: BASE_MAINNET_NETWORK,
+      asset: BASE_MAINNET_USDC,
+      payTo: RECIPIENT,
+    });
   });
 });

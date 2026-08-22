@@ -11,6 +11,14 @@ export const BASE_MAINNET_NETWORK = "eip155:8453";
 export const BASE_SEPOLIA_NETWORK = "eip155:84532";
 export const BASE_MAINNET_USDC =
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+/**
+ * Coinbase CDP x402 facilitator — supports Base mainnet (eip155:8453).
+ * Used as the default when PAYMENT_MODE=production and X402_FACILITATOR_URL
+ * is not explicitly set. The x402.org facilitator only supports Base Sepolia
+ * and must NOT be used for mainnet.
+ */
+export const CDP_FACILITATOR_URL =
+  "https://api.cdp.coinbase.com/platform/v2/x402";
 
 export interface Agent402Config {
   /**
@@ -100,9 +108,15 @@ export function loadConfig(): Agent402Config {
     recipientAddress:
       process.env["X402_RECIPIENT_ADDRESS"] ??
       "0x0000000000000000000000000000000000000000",
-    // The facilitator URL remains environment-configurable for both real modes.
+    // The facilitator URL is environment-configurable; when unset, production
+    // defaults to the CDP facilitator (Base mainnet) and testnet defaults to
+    // x402.org (Base Sepolia). Uses || so an empty-string env value is treated
+    // as unset, allowing tests to clear the secret with vi.stubEnv("", "").
     facilitatorUrl:
-      process.env["X402_FACILITATOR_URL"] ?? "https://x402.org/facilitator",
+      process.env["X402_FACILITATOR_URL"] ||
+      (paymentMode === "production"
+        ? CDP_FACILITATOR_URL
+        : "https://x402.org/facilitator"),
     // Estimates reflect real provider telemetry: a grounded web search runs
     // ~$0.02–0.05 (tool calls + tokens); VERIFY composes search + reads +
     // evidence analysis.
