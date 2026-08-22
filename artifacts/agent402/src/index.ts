@@ -13,12 +13,6 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const config = getConfig();
-if (config.paymentMode === "production") {
-  // Real-money mode must never activate implicitly. Testnet is the ceiling.
-  throw new Error(
-    "PAYMENT_MODE=production is not enabled. Use PAYMENT_MODE=test (demo) or PAYMENT_MODE=testnet (real x402 testnet payments).",
-  );
-}
 
 const { createRealFulfiller } = await import("./services/fulfillment");
 const app = createApp({

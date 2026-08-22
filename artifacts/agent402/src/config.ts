@@ -7,11 +7,15 @@
 
 export type PaymentMode = "test" | "testnet" | "production";
 
+export const BASE_MAINNET_NETWORK = "eip155:8453";
+export const BASE_SEPOLIA_NETWORK = "eip155:84532";
+export const BASE_MAINNET_USDC =
+  "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+
 export interface Agent402Config {
   /**
    * "test" (mocked payments, demo mode), "testnet" (real x402 payments in
-   * testnet USDC on one network), or "production" (real money — must be
-   * explicit and is NOT enabled in this version).
+   * testnet USDC), or "production" (real x402 payments in Base mainnet USDC).
    */
   paymentMode: PaymentMode;
   /** Minimum acceptable gross margin (0–1). Work below this is refused. */
@@ -73,8 +77,9 @@ function envPaymentMode(): PaymentMode {
 }
 
 export function loadConfig(): Agent402Config {
+  const paymentMode = envPaymentMode();
   const config: Agent402Config = {
-    paymentMode: envPaymentMode(),
+    paymentMode,
     minGrossMargin: envNumber("MIN_GROSS_MARGIN", 0.5),
     defaultTargetMargin: envNumber("DEFAULT_TARGET_MARGIN", 0.6),
     costSafetyBuffer: envNumber("COST_SAFETY_BUFFER", 0.25),
@@ -83,13 +88,19 @@ export function loadConfig(): Agent402Config {
     maxSearchCostPerRequest: envNumber("MAX_SEARCH_COST_PER_REQUEST", 0.12),
     maxRetries: envNumber("MAX_RETRIES", 2),
     priceRoundingIncrement: envNumber("PRICE_ROUNDING_INCREMENT", 0.001),
-    paymentAsset: process.env["X402_PAYMENT_ASSET"] ?? "USDC",
-    // CAIP-2 network id per current x402 v2 spec. Base Sepolia testnet.
-    paymentNetwork: process.env["X402_PAYMENT_NETWORK"] ?? "eip155:84532",
+    paymentAsset:
+      paymentMode === "production"
+        ? BASE_MAINNET_USDC
+        : process.env["X402_PAYMENT_ASSET"] ?? "USDC",
+    // CAIP-2 network id per current x402 v2 spec.
+    paymentNetwork:
+      paymentMode === "production"
+        ? BASE_MAINNET_NETWORK
+        : process.env["X402_PAYMENT_NETWORK"] ?? BASE_SEPOLIA_NETWORK,
     recipientAddress:
       process.env["X402_RECIPIENT_ADDRESS"] ??
       "0x0000000000000000000000000000000000000000",
-    // Public x402.org facilitator supports Base Sepolia — testnet only.
+    // The facilitator URL remains environment-configurable for both real modes.
     facilitatorUrl:
       process.env["X402_FACILITATOR_URL"] ?? "https://x402.org/facilitator",
     // Estimates reflect real provider telemetry: a grounded web search runs
@@ -129,17 +140,33 @@ export function validateConfig(c: Agent402Config): void {
   if (c.maxRetries < 0) {
     throw new Error("MAX_RETRIES must be >= 0");
   }
-  if (c.paymentMode === "testnet") {
+  if (c.paymentMode === "testnet" || c.paymentMode === "production") {
     if (!/^0x[0-9a-fA-F]{40}$/.test(c.recipientAddress)) {
       throw new Error(
-        "PAYMENT_MODE=testnet requires X402_RECIPIENT_ADDRESS to be a valid EVM address",
+        `PAYMENT_MODE=${c.paymentMode} requires X402_RECIPIENT_ADDRESS to be a valid EVM address`,
       );
     }
     if (/^0x0{40}$/.test(c.recipientAddress)) {
       throw new Error(
-        "PAYMENT_MODE=testnet requires a non-zero X402_RECIPIENT_ADDRESS",
+        `PAYMENT_MODE=${c.paymentMode} requires a non-zero X402_RECIPIENT_ADDRESS`,
       );
     }
+  }
+  if (
+    c.paymentMode === "production" &&
+    c.paymentNetwork !== BASE_MAINNET_NETWORK
+  ) {
+    throw new Error(
+      `PAYMENT_MODE=production requires ${BASE_MAINNET_NETWORK}`,
+    );
+  }
+  if (
+    c.paymentMode === "production" &&
+    c.paymentAsset.toLowerCase() !== BASE_MAINNET_USDC.toLowerCase()
+  ) {
+    throw new Error(
+      "PAYMENT_MODE=production requires the native Base mainnet USDC asset",
+    );
   }
   if ((c.paymentMode === "testnet" || c.paymentMode === "production") && !c.publicUrl) {
     // Not a hard error — the server still works, but external agents will see

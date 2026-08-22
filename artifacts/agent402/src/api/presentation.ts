@@ -15,6 +15,12 @@ export function siteNav(basePath: string): string {
 }
 
 export function statusPill(mode: string): string {
-  const live = mode === "testnet";
-  return `<span class="eyebrow" style="color:${live ? "var(--mint)" : "var(--amber)"}">${live ? "● x402 testnet / Base Sepolia" : "● demo mode / payments simulated"}</span>`;
+  const live = mode === "testnet" || mode === "production";
+  const label =
+    mode === "production"
+      ? "● x402 production / Base mainnet"
+      : mode === "testnet"
+        ? "● x402 testnet / Base Sepolia"
+        : "● demo mode / payments simulated";
+  return `<span class="eyebrow" style="color:${live ? "var(--mint)" : "var(--amber)"}">${label}</span>`;
 }

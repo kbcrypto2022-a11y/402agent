@@ -67,11 +67,14 @@ export function createApp(opts: {
   if (!processor) {
     if (config.paymentMode === "test") {
       processor = new MockPaymentProcessor(config);
-    } else if (config.paymentMode === "testnet") {
+    } else if (
+      config.paymentMode === "testnet" ||
+      config.paymentMode === "production"
+    ) {
       processor = new RealX402Processor(config);
     } else {
       throw new Error(
-        "PAYMENT_MODE=production is not enabled. Use PAYMENT_MODE=test or PAYMENT_MODE=testnet.",
+        `Unsupported PAYMENT_MODE "${config.paymentMode}".`,
       );
     }
   }
@@ -194,7 +197,11 @@ export function createApp(opts: {
     createApiRouter(config, opts.store, processor, opts.fulfiller),
   );
 
-  if (config.paymentMode === "testnet" || opts.cdpProcessor) {
+  if (
+    config.paymentMode === "testnet" ||
+    config.paymentMode === "production" ||
+    opts.cdpProcessor
+  ) {
     const cdpConfig: Agent402Config = {
       ...config,
       facilitatorUrl: CDP_FACILITATOR_URL,

@@ -13,7 +13,7 @@
 import type { Agent402Config } from "../config";
 import { buildQuote } from "../pricing/engine";
 
-function paymentRequiredSchema(): object {
+function paymentRequiredSchema(network: string): object {
   return {
     type: "object",
     description:
@@ -42,7 +42,7 @@ function paymentRequiredSchema(): object {
             network: {
               type: "string",
               description: "CAIP-2 network identifier.",
-              example: "eip155:84532",
+               example: network,
             },
             payTo: {
               type: "string",
@@ -68,7 +68,7 @@ function paymentRequiredSchema(): object {
   };
 }
 
-function settlementSchema(): object {
+function settlementSchema(network: string): object {
   return {
     type: "object",
     description: "On-chain settlement details. Present only when replayed is false.",
@@ -81,14 +81,14 @@ function settlementSchema(): object {
       network: {
         type: "string",
         description: "CAIP-2 network where settlement occurred.",
-        example: "eip155:84532",
+         example: network,
       },
     },
     required: ["transactionHash", "network"],
   };
 }
 
-function successEnvelope(resultRef: string): object {
+function successEnvelope(resultRef: string, network: string): object {
   return {
     type: "object",
     properties: {
@@ -99,7 +99,7 @@ function successEnvelope(resultRef: string): object {
           "True when this payment was already consumed and the cached result is returned. " +
           "No additional charge; settlement is not included.",
       },
-      settlement: { ...settlementSchema(), nullable: true },
+      settlement: { ...settlementSchema(network), nullable: true },
       result: { $ref: resultRef },
     },
     required: ["transaction_id", "replayed", "result"],
@@ -160,9 +160,11 @@ export function openApiSpec(config: Agent402Config, origin: string): object {
   const verifyPrice = buildQuote(config, "verify").price;
 
   const networkLabel =
-    config.paymentMode === "testnet"
-      ? "Base Sepolia testnet (eip155:84532) — no real money"
-      : "demo mode — simulated payments";
+    config.paymentMode === "production"
+      ? "Base mainnet (eip155:8453) — real USDC payments"
+      : config.paymentMode === "testnet"
+        ? "Base Sepolia testnet (eip155:84532) — no real money"
+        : "demo mode — simulated payments";
 
   return {
     openapi: "3.1.0",
@@ -246,9 +248,11 @@ console.log(await res.json());
         signature_header: "PAYMENT-SIGNATURE",
         client_library: "npm:@x402/fetch",
         note:
-          config.paymentMode === "testnet"
-            ? "Testnet mode — uses Base Sepolia USDC, no real money."
-            : "Demo mode — payments are simulated test tokens.",
+          config.paymentMode === "production"
+            ? "Production mode — uses Base mainnet USDC."
+            : config.paymentMode === "testnet"
+              ? "Testnet mode — uses Base Sepolia USDC, no real money."
+              : "Demo mode — payments are simulated test tokens.",
       },
     },
     servers: [
@@ -527,10 +531,10 @@ Verdicts:
         },
 
         // ── x402 Payment ─────────────────────────────────────────────────────
-        PaymentRequired: paymentRequiredSchema(),
+        PaymentRequired: paymentRequiredSchema(config.paymentNetwork),
 
         // ── Shared ───────────────────────────────────────────────────────────
-        Settlement: settlementSchema(),
+        Settlement: settlementSchema(config.paymentNetwork),
         ErrorResponse: {
           type: "object",
           properties: {
@@ -596,7 +600,10 @@ Verdicts:
           required: ["service", "results", "sources", "generated_at"],
         },
         SearchSuccessResponse: {
-          ...successEnvelope("#/components/schemas/SearchResult_Result"),
+          ...successEnvelope(
+            "#/components/schemas/SearchResult_Result",
+            config.paymentNetwork,
+          ),
           description: "Successful search response with settlement proof",
         },
 
@@ -631,7 +638,10 @@ Verdicts:
           required: ["service", "title", "summary", "source_url"],
         },
         ReadSuccessResponse: {
-          ...successEnvelope("#/components/schemas/ReadResult_Result"),
+          ...successEnvelope(
+            "#/components/schemas/ReadResult_Result",
+            config.paymentNetwork,
+          ),
           description: "Successful read response with settlement proof",
         },
 
@@ -695,7 +705,10 @@ Verdicts:
           required: ["service", "claim", "verdict", "confidence", "generated_at"],
         },
         VerifySuccessResponse: {
-          ...successEnvelope("#/components/schemas/VerifyResult_Result"),
+          ...successEnvelope(
+            "#/components/schemas/VerifyResult_Result",
+            config.paymentNetwork,
+          ),
           description: "Successful verification response with settlement proof",
         },
       },

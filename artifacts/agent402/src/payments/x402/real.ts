@@ -1,5 +1,5 @@
 /**
- * Real x402 payment processor (PAYMENT_MODE=testnet).
+ * Real x402 payment processor (PAYMENT_MODE=testnet or production).
  *
  * Implements the CURRENT official x402 v2 seller flow using the official
  * packages (@x402/core, @x402/evm, @x402/extensions):
@@ -9,15 +9,14 @@
  *  - Payment: client retries with a base64 `PAYMENT-SIGNATURE` header
  *    carrying a signed `PaymentPayload` (EIP-3009 USDC authorization).
  *  - Verification/settlement: delegated to an x402 facilitator
- *    (default https://x402.org/facilitator — Base Sepolia testnet).
+ *    (default/configured facilitator — network comes from Agent402Config).
  *  - Flow model: `authorization` — verify → do work → settle. Funds only
  *    move after fulfillment succeeds.
  *
- * One network only (Base Sepolia, eip155:84532) with testnet USDC, per spec.
- * Divergence from the original build prompt's assumptions, per current docs:
- * headers are PAYMENT-REQUIRED / PAYMENT-SIGNATURE (not X-PAYMENT), networks
- * are CAIP-2 ids (eip155:84532, not "base-sepolia"), and amounts are atomic
- * token units.
+ * Network and asset are taken from Agent402Config. Production configuration
+ * pins these to Base mainnet (eip155:8453) and native USDC.
+ * Headers are PAYMENT-REQUIRED / PAYMENT-SIGNATURE, networks are CAIP-2 ids,
+ * and amounts are atomic token units.
  */
 
 import { createHash } from "node:crypto";
@@ -311,7 +310,7 @@ export interface RealX402ProcessorOptions {
 }
 
 export class RealX402Processor implements PaymentProcessor {
-  readonly mode = "testnet" as const;
+  readonly mode: "testnet" | "production";
   readonly paymentHeaderName = "PAYMENT-SIGNATURE";
 
   private readonly server: x402ResourceServer;
@@ -324,6 +323,7 @@ export class RealX402Processor implements PaymentProcessor {
     facilitatorClient?: FacilitatorClient,
     options: RealX402ProcessorOptions = {},
   ) {
+    this.mode = config.paymentMode === "production" ? "production" : "testnet";
     this.options = options;
     this.network = config.paymentNetwork as Network;
     const client =
@@ -395,7 +395,12 @@ export class RealX402Processor implements PaymentProcessor {
     const serviceBrand = this.options.serviceBrand ?? "Agent402";
     const serviceTag = this.options.serviceTag ?? "agent402";
     const description = truncateDescription(
-      meta.description,
+      meta.description.replace(
+        "Base Sepolia (eip155:84532)",
+        this.network === "eip155:8453"
+          ? "Base mainnet (eip155:8453)"
+          : "Base Sepolia (eip155:84532)",
+      ),
       this.options.maxResourceDescriptionLength,
     );
     const paymentRequired = await this.server.createPaymentRequiredResponse(

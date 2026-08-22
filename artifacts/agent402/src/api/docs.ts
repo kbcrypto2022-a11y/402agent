@@ -145,11 +145,13 @@ export function servicesMetadata(
     payment: {
       protocol: "x402", x402_version: 2, scheme: "exact",
       asset: config.paymentAsset, network: config.paymentNetwork, mode: config.paymentMode,
-      facilitator: config.paymentMode === "testnet" ? config.facilitatorUrl : null,
-      payment_header: config.paymentMode === "testnet" ? "PAYMENT-SIGNATURE" : "X-PAYMENT",
+      facilitator: config.paymentMode === "test" ? null : config.facilitatorUrl,
+      payment_header: config.paymentMode === "test" ? "X-PAYMENT" : "PAYMENT-SIGNATURE",
       note: config.paymentMode === "test"
         ? "Demo mode: payments are simulated test tokens, clearly labeled and never mixed with real revenue."
-        : "Testnet payments (no real money). Amounts in the 402 requirements are atomic USDC units.",
+        : config.paymentMode === "production"
+          ? "Production payments on Base mainnet USDC. Amounts in the 402 requirements are atomic USDC units."
+          : "Testnet payments (no real money). Amounts in the 402 requirements are atomic USDC units.",
     },
     discovery: { bazaar_extension: "402 responses embed the official x402 Bazaar discovery extension." },
     services: SERVICES.map((service) => ({
@@ -180,7 +182,17 @@ export function servicesMetadata(
 
 export function docsPageHtml(basePath: string, config: Agent402Config): string {
   const isTestnet = config.paymentMode === "testnet";
-  const header = isTestnet ? "PAYMENT-SIGNATURE" : "X-PAYMENT";
+  const isProduction = config.paymentMode === "production";
+  const isRealPayment = isTestnet || isProduction;
+  const header = isRealPayment ? "PAYMENT-SIGNATURE" : "X-PAYMENT";
+  const modeDescription = isProduction
+    ? " (Base mainnet — real USDC payments)"
+    : isTestnet
+      ? " (Base Sepolia testnet — no real money)"
+      : " (demo — simulated payments)";
+  const settlementStatus = isProduction
+    ? '<td style="color:var(--mint)">AVAILABLE</td><td>Production settlement uses Base mainnet USDC after successful fulfillment.</td>'
+    : '<td style="color:var(--muted)">UNAVAILABLE</td><td>Current environment does not claim mainnet availability.</td>';
   return `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>402Agent.ai — Developer Documentation</title>
@@ -188,7 +200,7 @@ export function docsPageHtml(basePath: string, config: Agent402Config): string {
 <style>${presentationStyles}</style></head><body>${siteNav(basePath)}
 <main class="wrap docs-wrap"><p class="back"><a href="${basePath}/">← 402Agent.ai</a></p>
 ${statusPill(config.paymentMode)}<h1>Developer<br/>documentation</h1>
-<p>Structured web intelligence for agents, paid per request via <strong>x402</strong>. Current mode: <code>${config.paymentMode}</code>${isTestnet ? " (Base Sepolia testnet — no real money)" : " (demo — simulated payments)"}.</p>
+<p>Structured web intelligence for agents, paid per request via <strong>x402</strong>. Current mode: <code>${config.paymentMode}</code>${modeDescription}.</p>
 
 <h2>Payment flow</h2><ol>
 <li><strong>Request without payment.</strong> <code>POST ${basePath}/api/v1/&lt;service&gt;</code> with a JSON body. You receive <code>402 Payment Required</code> and exact requirements — scheme <code>exact</code>, network <code>${config.paymentNetwork}</code>, USDC asset, recipient, amount in atomic units, and a <code>transaction_id</code>.</li>
@@ -215,8 +227,8 @@ ${statusPill(config.paymentMode)}<h1>Developer<br/>documentation</h1>
 <li>Work runs under a hard cost budget. If it cannot be served profitably, the service returns <code>503 UNPROFITABLE_REQUEST</code>.</li>
 <li>Common codes include <code>INVALID_REQUEST</code>, <code>PAYMENT_NOT_VERIFIED</code>, <code>PAYMENT_FAILED</code>, <code>RATE_LIMITED</code>, <code>BUDGET_EXCEEDED</code>, and <code>INTERNAL_ERROR</code>.</li></ul>
 
-<h2>Quickstart</h2>${isTestnet
-    ? `<p>Using the official x402 packages and a viem wallet holding Base Sepolia USDC:</p><pre>import { wrapFetchWithPayment } from "@x402/fetch";
+<h2>Quickstart</h2>${isRealPayment
+    ? `<p>Using the official x402 packages and a viem wallet holding ${isProduction ? "Base mainnet" : "Base Sepolia"} USDC:</p><pre>import { wrapFetchWithPayment } from "@x402/fetch";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { x402Client } from "@x402/core/client";
 import { privateKeyToAccount } from "viem/accounts";
@@ -243,6 +255,6 @@ const result = await fetch("${basePath}/api/v1/verify", { method: "POST",
 <tr><td><code>/api/v1/health</code></td><td style="color:var(--mint)">AVAILABLE</td><td>Service status and payment mode.</td></tr>
 <tr><td><code>/api/v1/pricing</code></td><td style="color:var(--mint)">AVAILABLE</td><td>Live per-request prices.</td></tr>
 <tr><td><code>/api/v1/services</code></td><td style="color:var(--mint)">AVAILABLE</td><td>Canonical discovery metadata.</td></tr>
-<tr><td>Production settlement</td><td style="color:var(--muted)">UNAVAILABLE</td><td>Current environment does not claim mainnet availability.</td></tr></table>
+<tr><td>Production settlement</td>${settlementStatus}</tr></table>
 </main><footer class="wrap"><span>402Agent.ai · Intelligence for agents.</span><span><a href="${basePath}/">home</a> · <a href="${basePath}/api/v1/health">status</a></span></footer></body></html>`;
 }

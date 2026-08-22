@@ -622,11 +622,18 @@ describe("CDP Bazaar route surface", () => {
 });
 
 describe("payment mode gating", () => {
-  it("production mode refuses to build the app", () => {
-    const config = testConfig({ paymentMode: "production" });
+  it("production mode is accepted and uses the real x402 processor", () => {
+    // Production mode (Base mainnet) is now a supported payment mode.
+    // createApp must not throw; it should produce a functioning app.
+    const config = testConfig({
+      paymentMode: "production",
+      paymentNetwork: "eip155:8453",
+      paymentAsset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      recipientAddress: RECIPIENT,
+    });
     expect(() =>
       createApp({ store: new MemoryTransactionStore(), config, quiet: true }),
-    ).toThrow(/production/i);
+    ).not.toThrow();
   });
 
   it("testnet config requires a non-zero recipient address", async () => {

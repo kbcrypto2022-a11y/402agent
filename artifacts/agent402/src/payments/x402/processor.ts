@@ -4,9 +4,9 @@
  * Two implementations exist behind this interface:
  *  - MockPaymentProcessor (PAYMENT_MODE=test): demo mode, HMAC-signed local
  *    test tokens, no network access, X-PAYMENT header.
- *  - RealX402Processor (PAYMENT_MODE=testnet): the current official x402 v2
- *    flow — base64 PAYMENT-REQUIRED / PAYMENT-SIGNATURE headers, facilitator
- *    verification and on-chain settlement in testnet USDC.
+ *  - RealX402Processor (PAYMENT_MODE=testnet or production): the current
+ *    official x402 v2 flow — base64 PAYMENT-REQUIRED / PAYMENT-SIGNATURE
+ *    headers, facilitator verification and on-chain settlement in USDC.
  *
  * The orchestration in api/flow.ts is identical for both: quote → 402 →
  * verify → atomic claim → hard budget → work → (settle) → record economics.
@@ -56,7 +56,7 @@ export interface VerifiedPaymentInfo {
 }
 
 export interface PaymentProcessor {
-  readonly mode: "test" | "testnet";
+  readonly mode: "test" | "testnet" | "production";
   /** Name of the request header carrying the payment (for docs/errors). */
   readonly paymentHeaderName: string;
   /** Pull the payment header off a request, if present. */
