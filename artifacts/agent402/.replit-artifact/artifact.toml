@@ -7,7 +7,7 @@ id = "agent402-x402-service"
 [[services]]
 localPort = 8090
 name = "Agent402"
-paths = ["/agent402", "/openapi.json", "/.well-known/x402"]
+paths = ["/", "/agent402", "/openapi.json", "/.well-known/x402"]
 
 [services.development]
 run = "pnpm --filter @workspace/agent402 run dev"
