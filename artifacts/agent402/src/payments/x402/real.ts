@@ -28,6 +28,7 @@ import {
 import {
   decodePaymentSignatureHeader,
   encodePaymentRequiredHeader,
+  FacilitatorResponseError,
 } from "@x402/core/http";
 import type {
   Network,
@@ -463,8 +464,44 @@ export class RealX402Processor implements PaymentProcessor {
     tx: TransactionRecord,
   ): Promise<VerifiedPaymentInfo> {
     const payload = this.decode(header);
+
+    // ── Boundary 1: structural guards ─────────────────────────────────────
+    // Checked BEFORE requirementsFor() so obviously-wrong payloads are
+    // rejected cheaply.  Both checks produce PaymentError (→ HTTP 402)
+    // rather than letting a TypeError or library exception escape (→ 500).
+    if (!payload.accepted || typeof payload.accepted !== "object") {
+      throw new PaymentError(
+        "Malformed payment payload: missing required 'accepted' field",
+        "PAYMENT_NOT_VERIFIED",
+      );
+    }
+    if (payload.x402Version !== 2) {
+      throw new PaymentError(
+        `Unsupported x402 version ${payload.x402Version}: this service requires x402 v2`,
+        "PAYMENT_NOT_VERIFIED",
+      );
+    }
+
+    logger.debug(
+      {
+        phase: "verify",
+        stage: "decoded",
+        transaction_id: tx.id,
+        x402Version: payload.x402Version,
+        scheme: payload.accepted.scheme,
+        network: payload.accepted.network,
+        asset: payload.accepted.asset,
+        amount: payload.accepted.amount,
+        payTo: payload.accepted.payTo,
+        // NOTE: signature, authorization, and full header are intentionally
+        // not logged here; see paymentDiagnosticPayload() for the safe subset.
+      },
+      "payment header decoded",
+    );
+
     const requirements = await this.requirementsFor(tx);
 
+    // ── Boundary 2: payment requirements comparison ────────────────────────
     // The client must have accepted OUR requirements: scheme, network,
     // asset, recipient, and an amount covering the quoted price.
     const accepted = payload.accepted;
@@ -492,9 +529,50 @@ export class RealX402Processor implements PaymentProcessor {
       );
     }
 
+    // ── Boundary 3: facilitator verification ──────────────────────────────
+    // The x402 library's verifyPayment() can throw FacilitatorResponseError,
+    // FacilitatorTimeoutError, or a plain Error ("No facilitator supports…").
+    // None of those are PaymentError, so without this catch they escape to
+    // Express's error handler as HTTP 500.  We convert all of them here.
+    logger.debug(
+      {
+        phase: "verify",
+        stage: "facilitator_call",
+        facilitatorHost: new URL(this.config.facilitatorUrl).hostname,
+        transaction_id: tx.id,
+      },
+      "calling facilitator verify",
+    );
     const verifyStartedMs = Date.now();
     const verifyStartedAt = new Date().toISOString();
-    const result = await this.server.verifyPayment(payload, requirements);
+    const result = await this.server
+      .verifyPayment(payload, requirements)
+      .catch((err: unknown) => {
+        const isFacilitatorErr = err instanceof FacilitatorResponseError;
+        logger.error(
+          {
+            phase: "verify",
+            stage: "facilitator_threw",
+            facilitatorHost: new URL(this.config.facilitatorUrl).hostname,
+            transaction_id: tx.id,
+            x402Version: payload.x402Version,
+            scheme: accepted.scheme,
+            network: accepted.network,
+            asset: accepted.asset,
+            amount: accepted.amount,
+            errClass: err instanceof Error ? err.constructor.name : typeof err,
+            errMessage: err instanceof Error ? err.message : String(err),
+            isFacilitatorErr,
+          },
+          "facilitator verify threw unexpectedly",
+        );
+        throw new PaymentError(
+          isFacilitatorErr
+            ? `Facilitator verification error: ${(err as FacilitatorResponseError).message}`
+            : "Payment verification failed due to an unexpected server error",
+          "PAYMENT_FAILED",
+        );
+      });
     if (paymentDiagnosticsEnabled()) {
       logger.info(
         {
@@ -528,9 +606,43 @@ export class RealX402Processor implements PaymentProcessor {
       payer: result.payer ?? null,
       paymentStatus: "verified_x402",
       settle: async (): Promise<SettlementInfo> => {
+        // ── Boundary 4: facilitator settlement ──────────────────────────────
+        // Same pattern as verify: settlePayment() can throw non-PaymentError
+        // exceptions that would otherwise surface as HTTP 500.
+        logger.debug(
+          {
+            phase: "settle",
+            stage: "facilitator_call",
+            facilitatorHost: new URL(this.config.facilitatorUrl).hostname,
+            transaction_id: tx.id,
+          },
+          "calling facilitator settle",
+        );
         const settleStartedMs = Date.now();
         const settleStartedAt = new Date().toISOString();
-        const settle = await this.server.settlePayment(payload, requirements);
+        const settle = await this.server
+          .settlePayment(payload, requirements)
+          .catch((err: unknown) => {
+            const isFacilitatorErr = err instanceof FacilitatorResponseError;
+            logger.error(
+              {
+                phase: "settle",
+                stage: "facilitator_threw",
+                facilitatorHost: new URL(this.config.facilitatorUrl).hostname,
+                transaction_id: tx.id,
+                errClass: err instanceof Error ? err.constructor.name : typeof err,
+                errMessage: err instanceof Error ? err.message : String(err),
+                isFacilitatorErr,
+              },
+              "facilitator settle threw unexpectedly",
+            );
+            throw new PaymentError(
+              isFacilitatorErr
+                ? `Settlement error: ${(err as FacilitatorResponseError).message}`
+                : "Settlement failed due to an unexpected server error",
+              "PAYMENT_FAILED",
+            );
+          });
         if (paymentDiagnosticsEnabled()) {
           logger.info(
             {

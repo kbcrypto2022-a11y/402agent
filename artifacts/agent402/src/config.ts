@@ -191,6 +191,29 @@ export function validateConfig(c: Agent402Config): void {
       "Set AGENT402_PUBLIC_URL to the canonical production URL (e.g. https://api.agent402.com/agent402).",
     );
   }
+  // Facilitator URL must use HTTPS in any real payment mode — plain HTTP
+  // would expose payment credentials to a network observer.
+  if (
+    (c.paymentMode === "testnet" || c.paymentMode === "production") &&
+    !c.facilitatorUrl.startsWith("https://")
+  ) {
+    throw new Error(
+      `Facilitator URL must use HTTPS. Got: ${c.facilitatorUrl}`,
+    );
+  }
+  // In production, only the official CDP facilitator is permitted.
+  // Fail closed for any unknown or conflicting endpoint so funds can never
+  // flow to an unexpected destination.
+  if (
+    c.paymentMode === "production" &&
+    c.facilitatorUrl !== CDP_FACILITATOR_URL
+  ) {
+    throw new Error(
+      `Production mode requires the official CDP facilitator ` +
+        `(${CDP_FACILITATOR_URL}). Got: ${c.facilitatorUrl}. ` +
+        `Leave X402_FACILITATOR_URL unset to use the default.`,
+    );
+  }
 }
 
 let cached: Agent402Config | null = null;

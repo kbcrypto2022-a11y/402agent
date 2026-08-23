@@ -9,6 +9,7 @@ import {
   BASE_SEPOLIA_NETWORK,
   CDP_FACILITATOR_URL,
   loadConfig,
+  validateConfig,
   type Agent402Config,
 } from "../config";
 import { MemoryTransactionStore } from "../database/memoryStore";
@@ -314,5 +315,48 @@ describe("RealX402Processor facilitator initialization", () => {
       asset: BASE_MAINNET_USDC,
       payTo: RECIPIENT,
     });
+  });
+});
+
+describe("validateConfig: facilitator URL enforcement", () => {
+  it("production mode with the canonical CDP URL passes validation", () => {
+    const config = productionConfig();
+    expect(() => validateConfig(config)).not.toThrow();
+    expect(config.facilitatorUrl).toBe(CDP_FACILITATOR_URL);
+  });
+
+  it("production mode with a non-CDP HTTPS URL fails closed", () => {
+    const config = productionConfig();
+    config.facilitatorUrl = "https://rogue-facilitator.example.com/x402";
+    expect(() => validateConfig(config)).toThrow(/CDP facilitator/);
+  });
+
+  it("testnet mode with an HTTP (non-HTTPS) URL fails closed", () => {
+    const config = testConfig({
+      paymentMode: "testnet",
+      recipientAddress: RECIPIENT,
+      facilitatorUrl: "http://insecure.example.com/x402",
+    });
+    expect(() => validateConfig(config)).toThrow(/HTTPS/);
+  });
+
+  it("testnet mode with an HTTPS URL passes validation", () => {
+    const config = testConfig({
+      paymentMode: "testnet",
+      recipientAddress: RECIPIENT,
+      facilitatorUrl: "https://x402.org/facilitator",
+    });
+    expect(() => validateConfig(config)).not.toThrow();
+  });
+
+  it("loadConfig() in production defaults to the CDP facilitator URL", () => {
+    vi.stubEnv("PAYMENT_MODE", "production");
+    vi.stubEnv("X402_RECIPIENT_ADDRESS", RECIPIENT);
+    vi.stubEnv("X402_FACILITATOR_URL", "");
+    vi.stubEnv("AGENT402_PUBLIC_URL", "https://example.com/agent402");
+    vi.stubEnv("ALPACA_API_KEY", "dummy-key");
+    vi.stubEnv("ALPACA_SECRET_KEY", "dummy-secret");
+    const config = loadConfig();
+    expect(config.facilitatorUrl).toBe(CDP_FACILITATOR_URL);
   });
 });
