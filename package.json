@@ -1,0 +1,13 @@
+{
+  "name": "agent402-hostinger-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "start": "node --enable-source-maps dist/index.mjs"
+  },
+  "dependencies": {}
+}
